@@ -66,6 +66,27 @@ function [pt_point_positions, tikz_support_points, cdata_limits] = surf3tikz(h_f
 % surf3tikz is licensed under the MIT license
 %
 
+%% LUTs for MATLAB -> pgfplots conversion
+marker_conversion = containers.Map();
+marker_conversion('o') = 'o';
+marker_conversion('+') = '+';
+marker_conversion('*') = '10-pointed star';
+marker_conversion('.') = '*';
+marker_conversion('x') = 'x';
+marker_conversion('_') = '\(-\)';
+marker_conversion('|') = '\(\vert \)';
+marker_conversion('square') = 'square';
+marker_conversion('diamond') = 'diamond';
+marker_conversion('^') = 'triangle';
+marker_conversion('none') = 'none';
+
+line_conversion = containers.Map();
+line_conversion('-') = 'solid';
+line_conversion('--') = 'dashed';
+line_conversion(':') = 'dotted';
+line_conversion('-.') = 'dashdotted';
+line_conversion('none') = 'only marks';
+
 %% basic input argument handling
 if nargin < 2
     error('You''ll need to specify a figure handle and an export base filename!');
@@ -511,7 +532,14 @@ if (cfg.write_tikz)
     tfile_h = fopen([export_name, '.tikz'], 'w');
     fprintf(tfile_h, '%% created with surf3tikz written by Johannes Schlichenmaier\n');
     fprintf(tfile_h, '%% based on surf2TikZ written by Fabian Roos\n');
-    fprintf(tfile_h, '\\begin{tikzpicture}\n');
+    fprintf(tfile_h, ['\\begin{tikzpicture}[\n' ...
+        '\t define rgb/.code={\n' ...
+        '\t \t \\definecolor{mycolor}{rgb}{#1}\n' ...
+        '\t },\n' ...
+        '\t rgb color/.style={\n' ...
+        '\t \t define rgb={#1},mycolor\n' ...
+        '\t }\n' ...
+        ']\n']);
     fprintf(tfile_h, '\t \\begin{axis}[\n');
     fprintf(tfile_h, '\t \t grid,\n');
     fprintf(tfile_h, '\t \t enlargelimits = false,\n');
@@ -602,8 +630,32 @@ if (cfg.write_tikz)
         else
             fprintf(tfile_h, '\t \t \\addplot3+[%%\n');
         end
-        fprintf(tfile_h, '\t \t \t %% %s\n', 'mark=*, % x, +, o');
-        fprintf(tfile_h, '\t \t \t %% %s\n', '% only marks,');
+
+        if ext_idx
+            plot_params = plot_parameters_ext{ext_idx};
+        else
+            plot_params = plot_parameters_inline{inline_idx};
+        end
+
+        if isfield(plot_params,'LineStyle')
+            try
+                fprintf(tfile_h, '\t \t \t %s,\n',line_conversion(plot_params.LineStyle));
+            catch
+            end
+        end
+        if isfield(plot_params,'Marker')
+            try
+                fprintf(tfile_h, '\t \t \t mark=%s,\n', marker_conversion(plot_params.Marker));
+            catch
+            end
+        end
+        if isfield(plot_params,'Color')
+            try
+                fprintf(tfile_h, '\t \t \t rgb color={%f,%f,%f},\n', plot_params.Color(1), plot_params.Color(2), plot_params.Color(3));
+            catch
+            end
+        end
+
         if ext_idx
             fprintf(tfile_h, '\t \t ]\n');
             fprintf(tfile_h, '\t \t table[col sep = comma]{%s};\n', plot_data_filenames{ext_idx});
@@ -971,10 +1023,24 @@ if isempty(file_path)
     file_path = '.';
 end
 
-file_names = cell(num_objects);
-plot_parameters = cell(num_objects);
+file_names = cell(num_objects,1);
+plot_parameters = cell(num_objects,1);
 
 for i=1:num_objects
+    plot_parameters{i}=struct();
+    try
+        plot_parameters{i}.Color = g_objects(i).Color;
+    catch
+    end
+    try
+        plot_parameters{i}.LineStyle = g_objects(i).LineStyle;
+    catch
+    end
+    try
+        plot_parameters{i}.Marker = g_objects(i).Marker;
+    catch
+    end
+
     XYZ_Data = [g_objects(i).XData;g_objects(i).YData;g_objects(i).ZData];
     file_names{i} = sprintf([file_base_name, '-plot-%d.csv'], i);
     f_handle = fopen([file_path filesep file_names{i}], 'w+');
@@ -994,10 +1060,24 @@ function [plot_parameters, plot_points ] = process_plots_inline(g_objects, plot2
 %PROCESS_PLOTS extracts the line plot x/y/z positions
 num_objects = numel(g_objects);
 
-plot_points = cell(num_objects);
-plot_parameters = cell(num_objects);
+plot_points = cell(num_objects,1);
+plot_parameters = cell(num_objects,1);
 
 for i=1:num_objects
+    plot_parameters{i}=struct();
+    try
+        plot_parameters{i}.Color = g_objects(i).Color;
+    catch
+    end
+    try
+        plot_parameters{i}.LineStyle = g_objects(i).LineStyle;
+    catch
+    end
+    try
+        plot_parameters{i}.Marker = g_objects(i).Marker;
+    catch
+    end
+
     XYZ_Data = [g_objects(i).XData;g_objects(i).YData;g_objects(i).ZData];
     if plot2d
         XY_Data = XYZ_Data(view_dims, :);
