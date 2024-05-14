@@ -1098,6 +1098,9 @@ range_horz = [Inf, -Inf];
 range_vert = [Inf, -Inf];
 
 for i=1:numel(g_objects)
+    if isa(g_objects(i),'matlab.graphics.primitive.Text')
+        continue
+    end
     XYZ_Data_c = {g_objects(i).XData(:)';g_objects(i).YData(:)';g_objects(i).ZData(:)'};    
     
     HV_Data_c = XYZ_Data_c(view_dims);
